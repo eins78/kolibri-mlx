@@ -134,13 +134,13 @@ def run_case(base, model, case, max_tokens, pid):
                 args = json.loads(args) if isinstance(args, str) else args
             except json.JSONDecodeError:
                 args = None
-            if fn.get("name") == "get_weather" and isinstance(args, dict) and "zürich" in json.dumps(
-                args, ensure_ascii=False
-            ).lower():
+            # The model may write "Zurich" or "Zürich"; both name the city.
+            city = json.dumps(args, ensure_ascii=False).lower() if isinstance(args, dict) else ""
+            if fn.get("name") == "get_weather" and ("zürich" in city or "zurich" in city):
                 ok = True
         res["tool_call_ok"] = ok
         if not ok:
-            res["failures"].append("no valid get_weather tool call mentioning Zürich")
+            res["failures"].append("no valid get_weather tool call mentioning Zurich")
     else:
         res["tool_call_ok"] = None
         if not (msg.get("content") or "").strip():
