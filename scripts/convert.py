@@ -95,27 +95,49 @@ class ShardWriter:
             json.dump(index, f, indent=4)
 
 
-def make_predicate(group_size: int):
-    """Same rules as mlx-lm's quantize_model plus the model's quant_predicate."""
+def make_predicate(args_q: dict, prefix: str):
+    """Same rules as mlx-lm's quantize_model plus the model's quant_predicate.
+
+    Per-group bits (`attn`, `expert`, `embed`, `lm_head`) override the default;
+    0 keeps a group unquantised. Returns a dict so nn.quantize uses those bits.
+    """
     model_pred = Model.quant_predicate.fget(None)
+    group_size = args_q["group_size"]
 
     def predicate(path, module):
         if not hasattr(module, "to_quantized"):
             return False
         if module.weight.shape[-1] % group_size != 0:
             return False
-        return model_pred(path, module)
+        if not model_pred(prefix + path, module):
+            return False
+        bits = args_q["bits"]
+        if path.startswith(("self_attn.", "mlp.shared_experts.")):
+            bits = args_q.get("attn_bits", bits)
+        elif path.startswith("mlp.switch_mlp."):
+            bits = args_q.get("expert_bits", bits)
+        elif path == "embed_tokens":
+            bits = args_q.get("embed_bits", bits)
+        elif path == "lm_head":
+            bits = args_q.get("lm_head_bits", bits)
+        if not bits:
+            return False
+        return {"group_size": group_size, "bits": bits, "mode": "affine"}
 
     return predicate
+
+
+OVERRIDES: dict = {}
 
 
 def quantize_and_collect(module, prefix, writer, quant, args_q):
     """Quantise `module` in place (if requested), eval, hand tensors to the writer."""
     if quant:
-        nn.quantize(
-            module, args_q["group_size"], args_q["bits"], mode="affine",
-            class_predicate=make_predicate(args_q["group_size"]),
-        )
+        nn.quantize(module, class_predicate=make_predicate(args_q, prefix))
+        # Record modules whose bits differ from the default, as mlx-lm does.
+        for path, m in module.named_modules():
+            if hasattr(m, "bits") and (m.bits != args_q["bits"] or m.group_size != args_q["group_size"]):
+                OVERRIDES[prefix + path] = {"group_size": m.group_size, "bits": m.bits, "mode": "affine"}
     mx.eval(module.parameters())
     flat = tree_flatten(module.parameters())
     quantized = {k[: -len(".scales")] for k, _ in flat if k.endswith(".scales")}
@@ -160,6 +182,9 @@ def main():
     ap.add_argument("--bits", type=int, default=4, choices=[2, 3, 4, 5, 6, 8])
     ap.add_argument("--group-size", type=int, default=64)
     ap.add_argument("--no-quant", action="store_true", help="write bf16, no quantisation")
+    for name, what in [("attn", "self_attn.* and mlp.shared_experts.*"), ("expert", "mlp.switch_mlp.*"),
+                       ("embed", "embed_tokens"), ("lm-head", "lm_head")]:
+        ap.add_argument(f"--{name}-bits", type=int, help=f"bits for {what} (default --bits; 0 = bf16)")
     ap.add_argument("--layers", type=int, help="debug: convert only the first N layers")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--log", action="store_true", help="also log to run/convert-<timestamp>.out")
@@ -171,6 +196,10 @@ def main():
 
     quant = not a.no_quant
     q = {"group_size": a.group_size, "bits": a.bits, "mode": "affine"}
+    q_cfg = dict(q)
+    for k in ("attn_bits", "expert_bits", "embed_bits", "lm_head_bits"):
+        if getattr(a, k) is not None:
+            q[k] = getattr(a, k)
     ck = Checkpoint(a.hf_path)
     config = dict(ck.config)
     n_layers = a.layers if a.layers is not None else config["num_hidden_layers"]
@@ -251,8 +280,9 @@ def main():
     config.pop("quantization_config", None)  # drop the HF fp8 block
     config.pop("quantization", None)
     if quant:
-        config["quantization"] = q
-        config["quantization_config"] = dict(q)
+        config["quantization"] = {**q_cfg, **OVERRIDES}
+        config["quantization_config"] = {**q_cfg, **OVERRIDES}
+        log(f"per-module overrides: {len(OVERRIDES)}")
     with open(out_dir / "config.json", "w") as f:
         json.dump(config, f, indent=4)
     for name in COPY_FILES:
