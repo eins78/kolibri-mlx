@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """FP8 block dequantisation for the Aleph-Alpha/Kolibri-1 checkpoint.
 
 The checkpoint stores linear weights as ``float8_e4m3fn`` with one fp32

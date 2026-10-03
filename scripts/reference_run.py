@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Layer-streamed fp32 CPU reference run; writes per-layer activations to verify/out/reference/."""
 
 import argparse, json, os, resource, subprocess, sys, time

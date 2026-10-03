@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Register the out-of-tree ``kolibri1`` model with mlx-lm.
 
 mlx-lm resolves ``model_type`` with ``importlib.import_module("mlx_lm.models.<type>")``,

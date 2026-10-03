@@ -1,3 +1,7 @@
+# SPDX-License-Identifier: Apache-2.0 AND MIT
+# test_routing_semantics is a port of the test of the same name in
+# Aleph-Alpha/aleph-alpha-inference (Apache-2.0, Copyright 2026 Aleph Alpha GmbH).
+# The model_test_runner-style checks follow mlx-lm tests/test_models.py (MIT, Copyright © 2026 Apple Inc.).
 import copy
 
 import mlx.core as mx

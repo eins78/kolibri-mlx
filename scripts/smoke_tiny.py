@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Smoke test of the kolibri1 model file with a tiny random config.
 
 Checks: forward shape, prefill + decode with cache equals full re-prefill

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Convert the Kolibri-1 FP8 checkpoint to an mlx-lm directory, one layer at a time.
 
 Each decoder layer is dequantised, stacked into the MLX layout, quantised and

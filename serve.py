@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """OpenAI-compatible mlx-lm server with the kolibri1 model registered.
 
 Usage: uv run python serve.py --model models/Kolibri-1-4bit --port 8080 [mlx_lm.server flags]

@@ -1,6 +1,6 @@
 .venv/
-models/
-run/
+/models/
+/run/
 __pycache__/
 *.pyc
 .ckignore

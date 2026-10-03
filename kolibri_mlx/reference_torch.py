@@ -1,3 +1,6 @@
+# SPDX-License-Identifier: Apache-2.0
+# Derived from Aleph-Alpha/aleph-alpha-inference, aleph_alpha_inference/kolibri1.py (Copyright 2026 Aleph Alpha GmbH).
+# Changes: pure PyTorch fp32 CPU re-implementation of the forward pass, no vLLM.
 """Pure-PyTorch fp32 reference of the Kolibri 1 forward pass (ground truth for the MLX port).
 
 layer_w is keyed relative to ``model.layers.N.`` (see Checkpoint.layer_tensors).

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Compare single-prefill logits with decode-path logits on the converted model.
 
 Both paths use the same weights, so differences come only from kernel/accumulation

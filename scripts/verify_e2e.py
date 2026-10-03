@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """End-to-end check of a converted (quantised) MLX model against the torch
 fp32 reference logits."""
 

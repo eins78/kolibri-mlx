@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Streamed access to the Aleph-Alpha/Kolibri-1 FP8 checkpoint.
 
 Tensors are read shard by shard through ``safetensors.safe_open`` and FP8 weights

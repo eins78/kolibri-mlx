@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Per-position error of the converted model vs the torch reference, by position band."""
 import argparse, sys, os
 import numpy as np

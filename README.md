@@ -1,16 +1,20 @@
 # kolibri-mlx
 
-MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx-lm, with a converter, a torch fp32 reference and verification scripts.
+This is an MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx-lm, with a reproducible FP8-to-4-bit conversion and a numerical verification against a reference rebuilt from Aleph Alpha's vLLM plugin. The upstream mlx-lm pull request has not been opened yet.
 
 ## Status
 
-Done. Two 4-bit conversions load with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB: the shipped `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) and a plain uniform 4-bit one (41 GiB, 44.1 GB peak). Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. No upload, PR or other public action has been done.
+Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. No upload, PR or other public action has been done. Results of the owner's own evaluation suites against the model go to `evals/RESULTS.md` (phase 2, in progress).
 
 ### Verdict
 
 **The port is correct.** Run in fp32, layer by layer from the real embedding through `lm_head` with no teacher forcing, the MLX implementation reproduces the fp32 torch reference on all five prompts: top-1 agreement 1.000, top-5 1.000, mean KL about 1e-11, max logit difference at most 2.3e-4, identical expert selection at every layer (`verify/results/chain-fp32.json`).
 
 **The shipped model is a 4-bit quantisation and is measurably lossy.** The reference deployment itself runs in bf16 with FP8 activations, so the yardstick for a quantised model is the bf16 chained run, not fp32. Against the fp32 reference on the two long prompts, bf16 gives top-1 0.968 / 0.931 and mean KL 0.008 / 0.036; the shipped mixed 4-bit model gives top-1 0.966 / 0.892 and mean KL 0.017 / 0.069 (plain 4-bit: 0.905 / 0.845 and 0.080 / 0.154). 8-bit would be lossless relative to bf16 but does not fit in 64 GB. Numbers in section 5. Whether this loss is acceptable depends on the evaluation; see Interpretation.
+
+## AI assistance
+
+The port, the scripts, the tests and this README were written by an AI coding agent (Claude Code, Claude Fable 5.1, with Opus and Sonnet subagents). It worked from the brief in `docs/BRIEF-phase1.md` and was directed and reviewed by the repository owner. The verification numbers were produced by the scripts in this repository. mlx-lm's contribution policy requires disclosure of AI use and a human-written PR description for any upstream submission.
 
 ## 1. Quick start
 
@@ -117,6 +121,7 @@ What the model file (`kolibri_mlx/models/kolibri1.py`) does differently from `qw
 ### Method
 
 * Ground truth is a pure-PyTorch fp32 CPU forward built from the vLLM plugin's math (`kolibri_mlx/reference_torch.py`). `scripts/reference_run.py` runs it layer by layer with streamed, dequantised weights and saves every layer's residual stream, expert ids and expert weights, plus the final logits, to `verify/out/reference/`. 50 layers, five prompts, about 2.7 s per layer, peak RSS 26.2 GiB.
+* Caveat: the reference is a PyTorch fp32 rebuild of the plugin's math. The plugin itself was not run, because it needs vLLM on CUDA. The production stack (bf16 residual stream, FP8 activations) therefore has its own bf16-level deviation from this reference.
 * Two independent implementations of the reference math exist: `kolibri_mlx/reference_torch.py` and a second one inside `tests/test_kolibri1.py` (tiny random model). Both were written from the same trace of the plugin by separate subagents.
 * `scripts/verify_layerwise.py` compares the MLX decoder layer with the reference residual stream. Teacher-forced: each layer gets the reference's previous output as input. `--chain`: each layer gets the MLX layer's own previous output, starting from the real embedding, and the final logits are compared too.
 * `scripts/verify_e2e.py` loads the converted model with mlx-lm, runs a prefill and compares the logits with the reference logits.
@@ -324,13 +329,17 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 * The upstream mlx-lm PR needs your own description. mlx-lm policy: AI use must be disclosed and PR text must not be AI-written. `drafts/mlx-lm-pr.md` lists facts and tasks only.
 * No upload to Hugging Face has been done. `drafts/model-card.md` is a draft.
 * Serving leaves only 8 to 12 % of system memory free next to the Docker stack. Long evaluation runs should not share the machine with other large jobs.
-* The repo is private. No `LICENSE` file for our own code yet (CC0 intended).
 
 ## 7. Repository layout
 
 | Path | Purpose |
 |---|---|
-| `BRIEF.md` | task brief and constraints |
+| `docs/BRIEF-phase1.md` | phase 1 task brief and constraints |
+| `docs/BRIEF-phase2.md` | phase 2 brief (evals, licences, publication) |
+| `LICENSE` | CC0 1.0 Universal, default licence |
+| `LICENSES/` | full texts of the Apache-2.0 and MIT licences used by derived files |
+| `NOTICE` | derived files, upstreams, copyrights and changes |
+| `evals/` | evaluation suites run against the model; see `evals/RESULTS.md` (not created yet) |
 | `NOTES.md` | running log: decisions and numbers |
 | `README.md` | this file |
 | `pyproject.toml`, `uv.lock` | `uv` project, Python 3.12 |
@@ -363,9 +372,14 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 
 ## 8. Licences
 
-* Upstream weights (`Aleph-Alpha/Kolibri-1`, `Kolibri-1-BF16`) and the reference vLLM plugin (`Aleph-Alpha/aleph-alpha-inference`): Apache 2.0, Aleph Alpha.
-* mlx-lm: MIT. The model file follows mlx-lm's header convention and would be contributed under mlx-lm's licence.
-* This repo's own code: licence to be decided by Max. CC0 is intended. No `LICENSE` file has been added yet.
+The aim is the most permissive arrangement the upstream licences allow. Wholly original code keeps no rights. Derived code keeps its upstream licence and carries the upstream notice.
+
+* Default: CC0 1.0 Universal (`LICENSE`). This covers the converter, checkpoint reader, FP8 dequantisation, verification scripts, server wrappers, docs and notes.
+* MIT: `kolibri_mlx/models/kolibri1.py`, derived from mlx-lm's `qwen3_moe.py`, `cohere2.py` and `deepseek_v3.py` (Apple Inc.). It is meant to be contributed to mlx-lm.
+* Apache 2.0: `kolibri_mlx/reference_torch.py`, a transcription of the math of Aleph Alpha's `aleph_alpha_inference/kolibri1.py`. `tests/test_kolibri1.py` is Apache 2.0 AND MIT: the routing test is ported from the plugin, the model checks follow mlx-lm's test harness.
+* Weights: `Aleph-Alpha/Kolibri-1` and the converted models stay under Apache 2.0 by Aleph Alpha. They are not distributed here.
+
+Every source file has an SPDX identifier. `NOTICE` lists the derived files and what was changed. Full texts are in `LICENSES/`.
 
 ## 9. Reproduction checklist
 

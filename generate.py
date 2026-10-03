@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """mlx_lm.generate with the kolibri1 model registered.
 
 Usage: uv run python generate.py --model models/Kolibri-1-4bit -p "..." -m 200

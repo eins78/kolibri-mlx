@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Per-layer check of the MLX decoder layer math against the torch fp32
 reference residual stream. Teacher-forced by default; --chain feeds each
 layer's own output forward from the real embedding and also checks logits.

@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Server smoke test: start serve.py, run German/English/tool-call requests, report.
 
 Usage: uv run python scripts/smoke_server.py [--model models/Kolibri-1-4bit] [--no-assert]

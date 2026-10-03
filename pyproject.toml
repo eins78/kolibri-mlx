@@ -1,6 +1,10 @@
 [project]
 name = "kolibri-mlx"
 version = "0.1.0"
+description = "MLX port of Aleph Alpha Kolibri 1 for mlx-lm: conversion, model file and numerical verification"
+readme = "README.md"
+license = "CC0-1.0"
+license-files = ["LICENSE", "NOTICE", "LICENSES/*"]
 requires-python = ">=3.12"
 dependencies = [
     "huggingface-hub>=1.33.0",

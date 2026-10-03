@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Fixed prompts for verification. Raw text (no chat template) so the comparison
 does not depend on template handling. One prompt is longer than the 513-token
 sliding window on purpose, to exercise the window boundary and cache rotation."""

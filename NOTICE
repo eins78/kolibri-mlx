@@ -1,0 +1,40 @@
+kolibri-mlx
+
+Default licence: CC0 1.0 Universal (see LICENSE). The files below are
+derived from other projects and keep the licence of those projects.
+
+1. kolibri_mlx/models/kolibri1.py
+   Upstream:   mlx-lm (https://github.com/ml-explore/mlx-lm), files
+               mlx_lm/models/qwen3_moe.py, cohere2.py, deepseek_v3.py
+   Copyright:  Copyright (c) 2026 Apple Inc.
+   Licence:    MIT (LICENSES/MIT-mlx-lm.txt)
+   Changes:    New model file for Kolibri 1 that combines the sparse MoE
+               block of qwen3_moe, the sliding-window/global attention
+               layout of cohere2 and the sigmoid router with score bias of
+               deepseek_v3. Intended for contribution to mlx-lm.
+
+2. kolibri_mlx/reference_torch.py
+   Upstream:   Aleph-Alpha/aleph-alpha-inference,
+               aleph_alpha_inference/kolibri1.py
+   Copyright:  Copyright 2026 Aleph Alpha GmbH
+   Licence:    Apache License 2.0 (LICENSES/Apache-2.0.txt)
+   Changes:    Re-implementation of the forward pass in pure PyTorch, fp32,
+               on CPU, without vLLM. The upstream code was read and its
+               math transcribed. It was not run.
+
+3. tests/test_kolibri1.py
+   Upstream:   Aleph-Alpha/aleph-alpha-inference (test_routing_semantics),
+               Apache License 2.0, Copyright 2026 Aleph Alpha GmbH;
+               mlx-lm tests/test_models.py (harness shape),
+               MIT, Copyright (c) 2026 Apple Inc.
+   Licences:   Apache-2.0 AND MIT (LICENSES/)
+   Changes:    The routing test is ported from the plugin to this model
+               file. The model checks follow the model_test_runner style of
+               mlx-lm. The rest of the file is new.
+
+Model weights
+
+The converted weights produced by scripts/convert.py (in models/) are
+derived from Aleph-Alpha/Kolibri-1 and stay under the Apache License 2.0,
+Copyright 2026 Aleph Alpha GmbH. They are not distributed in this
+repository.

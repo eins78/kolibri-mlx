@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Validate FP8 block dequantisation against the BF16 checkpoint.
 
 Compares every tensor of the given shard of ``Aleph-Alpha/Kolibri-1`` (FP8) with

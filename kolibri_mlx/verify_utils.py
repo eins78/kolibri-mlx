@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: CC0-1.0
 """Shared helpers for the verification scripts."""
 
 import json
