@@ -1,6 +1,6 @@
 # kolibri-mlx
 
-This is an MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx-lm, with a reproducible FP8-to-4-bit conversion and a numerical verification against a reference rebuilt from Aleph Alpha's vLLM plugin.
+This is an MLX port of Aleph Alpha's [Kolibri 1](https://aleph-alpha.com/en/kolibri/) ([`Aleph-Alpha/Kolibri-1`](https://huggingface.co/Aleph-Alpha/Kolibri-1) on Hugging Face) for mlx-lm, with a reproducible FP8-to-4-bit conversion and a numerical verification against a reference rebuilt from Aleph Alpha's vLLM plugin.
 
 ## Status
 
