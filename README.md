@@ -178,10 +178,13 @@ Other quantisation variants, chained layer by layer (`scripts/verify_layerwise.p
 
 | Variant | `de_short` top-1 / KL | `en_short` | `de_code` | `en_long` | `de_long` |
 |---|---|---|---|---|---|
-| 8-bit | {{TBD}} | {{TBD}} | {{TBD}} | {{TBD}} | {{TBD}} |
-| mixed (attn 8, experts 4) | {{TBD}} | {{TBD}} | {{TBD}} | {{TBD}} | {{TBD}} |
+| bf16, unquantised (`chain-bf16.json`) | 0.769 / 0.490 | 0.933 / 0.0057 | 1.000 / 0.00067 | 0.968 / 0.0082 | 0.931 / 0.036 |
+| 8-bit g64 (`chain-8bit.json`) | 0.692 / 0.373 | 1.000 / 0.0070 | 0.958 / 0.0023 | 0.969 / 0.0091 | 0.931 / 0.034 |
+| 4-bit g64 (`chain-4bit.json`, = converted model) | 0.538 / 1.05 | 1.000 / 0.094 | 0.917 / 0.085 | 0.905 / 0.080 | 0.845 / 0.154 |
+| 4-bit g32 (`chain-4bit-g32.json`) | 0.538 / 1.18 | 0.933 / 0.172 | 0.917 / 0.025 | 0.929 / 0.049 | 0.855 / 0.121 |
+| mixed: experts 4-bit g64, attention, shared expert, embeddings, lm_head 8-bit (`chain-mixed-a8e4.json`) | 0.385 / 0.526 | 0.867 / 0.015 | 0.958 / 0.010 | 0.966 / 0.017 | 0.892 / 0.069 |
 
-The first attempts of both runs failed with a script error (`Checkpoint(None)`, no `--checkpoint` given). `verify/out/chain-8bit.json` and `chain-mixed-a8e4.json` do not exist yet. An 8-bit model is about twice the size of the 4-bit one and cannot be loaded for generation on 64 GB, so these variants can only be checked layer by layer.
+An 8-bit model is about 83 GB and cannot be loaded for generation on 64 GB, so it was only checked layer by layer. The mixed variant is the one shipped as `models/Kolibri-1-4bit-mixed` (see 5c-2). `{{MIXED_E2E}}`
 
 ### 5d. Position bands (4-bit, prefill KL mean / top-1; decode path in the last two columns)
 
