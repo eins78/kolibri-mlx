@@ -79,7 +79,7 @@ def main():
         config = load_config(a.config)
     else:
         from kolibri_mlx.checkpoint import Checkpoint
-        ckpt = Checkpoint(a.checkpoint)
+        ckpt = Checkpoint(a.checkpoint) if a.checkpoint else Checkpoint()
         config = load_config(a.config) if a.config else ckpt.config
     config = dict(config)
     config.setdefault("model_type", "kolibri1")
