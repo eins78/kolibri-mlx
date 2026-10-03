@@ -1,0 +1,78 @@
+{
+  "model": "models/Kolibri-1-4bit-mixed",
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.97,
+    "top_k": 128
+  },
+  "max_tokens": 400,
+  "load_s": 4.8186681270599365,
+  "no_assert": false,
+  "results": [
+    {
+      "name": "de_reasoning_low",
+      "prompt": "Erkläre in zwei Sätzen, warum der Himmel blau ist.",
+      "reasoning_mode": "on",
+      "message": {
+        "role": "assistant",
+        "content": "\n\nSonnenlicht enthält alle Farben, und Luftmoleküle streuen kurzwelliges blaues Licht stärker als langwelliges rotes Licht.  \nDeshalb kommt vor allem das blaue Licht aus dem Himmel zu unseren Augen.",
+        "reasoning": "\nUser asks in German: \"Erkläre in zwei Sätzen, warum der Himmel blau ist.\" Need answer in two sentences. Must be concise. Two sentences exactly. Explain Rayleigh scattering. Ensure two sentences. Maybe: \"Sonnenlicht enthält alle Farben, und Luftmoleküle streuen kurzwelliges blaues Licht stärker als langwelliges rotes Licht. Deshalb kommt vor allem das blaue Licht aus dem Himmel zu unseren Augen.\" That's two sentences. Check: first sentence ends with red light? \"Licht\" maybe period. \"Sonnenlicht enthält alle Farben, und Luftmoleküle streuen kurzwelliges blaues Licht stärker als langwelliges rotes Licht.\" one. \"Deshalb kommt vor allem das blaue Licht aus dem Himmel zu unseren Augen.\" two. Good.\n"
+      },
+      "finish_reason": "stop",
+      "prompt_tokens": 57,
+      "completion_tokens": 200,
+      "wall_s": 11.11,
+      "tokens_per_s": 18.0,
+      "server_rss_gb": 44.64,
+      "mem_free_pct": "19%",
+      "failures": [],
+      "tool_call_ok": null
+    },
+    {
+      "name": "en_no_reasoning",
+      "prompt": "Give me three short tips for writing clear commit messages.",
+      "reasoning_mode": "off",
+      "message": {
+        "role": "assistant",
+        "content": "1. **State the change in one line**: Use the imperative mood (\"Add feature X\", \"Fix bug Y\") so it reads like a command.\n2. **Include the \"why\" if needed**: If the commit isn’t self‑explanatory, add a brief body explaining the reason for the change.\n3. **Keep it concise**: Aim for ≤ 50 characters in the subject line; details belong in the body, if required."
+      },
+      "finish_reason": "stop",
+      "prompt_tokens": 48,
+      "completion_tokens": 92,
+      "wall_s": 2.29,
+      "tokens_per_s": 40.24,
+      "server_rss_gb": 44.36,
+      "mem_free_pct": "18%",
+      "failures": [],
+      "tool_call_ok": null
+    },
+    {
+      "name": "de_tool_call",
+      "prompt": "Wie ist das Wetter in Zürich?",
+      "reasoning_mode": "off",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"city\": \"Zurich\"}"
+            },
+            "type": "function",
+            "id": "d564306f-d41b-4cbf-b37a-8420ca54e355"
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "prompt_tokens": 187,
+      "completion_tokens": 23,
+      "wall_s": 0.99,
+      "tokens_per_s": 23.21,
+      "server_rss_gb": 44.37,
+      "mem_free_pct": "18%",
+      "failures": [],
+      "tool_call_ok": true
+    }
+  ]
+}

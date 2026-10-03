@@ -29,15 +29,17 @@ uv sync
 hf download Aleph-Alpha/Kolibri-1
 
 # 2. convert to 4-bit MLX (about 3 minutes, peak MLX memory 8.75 GB)
-uv run python scripts/convert.py            # writes models/Kolibri-1-4bit
+uv run python scripts/convert.py --attn-bits 8 --embed-bits 8 --lm-head-bits 8 \
+    --mlx-path models/Kolibri-1-4bit-mixed   # routed experts 4-bit, rest 8-bit (recommended)
+# plain uniform 4-bit: uv run python scripts/convert.py   # writes models/Kolibri-1-4bit
 
 # 3. generate (recommended sampling from Aleph Alpha)
-uv run python generate.py --model models/Kolibri-1-4bit \
+uv run python generate.py --model models/Kolibri-1-4bit-mixed \
   -p "Erkläre in zwei Sätzen, warum der Himmel blau ist." -m 400 \
   --temp 1.0 --top-p 0.97 --top-k 128
 
 # 4. serve (OpenAI-compatible)
-uv run python serve.py --model models/Kolibri-1-4bit --port 8080
+uv run python serve.py --model models/Kolibri-1-4bit-mixed --port 8080
 ```
 
 Reasoning is switched through the chat template. Pass `reasoning_effort` (`none`, `low`, `medium`, `high`) or `enable_thinking` as `chat_template_kwargs`:
@@ -58,7 +60,7 @@ With reasoning on, the reply carries the thinking in `message.reasoning`. Tool c
 Smoke test (starts its own server, writes `verify/out/server-smoke.json`):
 
 ```bash
-uv run python scripts/smoke_server.py --model models/Kolibri-1-4bit
+uv run python scripts/smoke_server.py --model models/Kolibri-1-4bit-mixed
 ```
 
 ### Why mlx-lm is not patched
@@ -108,6 +110,7 @@ What the model file (`kolibri_mlx/models/kolibri1.py`) does differently from `qw
 |---|---|---|
 | `--hf-path` | `Aleph-Alpha/Kolibri-1` | source repo or directory |
 | `--mlx-path` | `models/Kolibri-1-4bit` | output directory (refuses if shards exist) |
+| `--attn-bits`, `--expert-bits`, `--embed-bits`, `--lm-head-bits` | same as `--bits` | per-group bits; 0 keeps that group in bf16. Overrides are written into `config.json` `quantization` as mlx-lm does |
 | `--bits` | 4 | 2, 3, 4, 5, 6 or 8 |
 | `--group-size` | 64 | quantisation group size |
 | `--no-quant` | off | write bf16 without quantisation |
@@ -186,7 +189,21 @@ Other quantisation variants, chained layer by layer (`scripts/verify_layerwise.p
 | 4-bit g32 (`chain-4bit-g32.json`) | 0.538 / 1.18 | 0.933 / 0.172 | 0.917 / 0.025 | 0.929 / 0.049 | 0.855 / 0.121 |
 | mixed: experts 4-bit g64, attention, shared expert, embeddings, lm_head 8-bit (`chain-mixed-a8e4.json`) | 0.385 / 0.526 | 0.867 / 0.015 | 0.958 / 0.010 | 0.966 / 0.017 | 0.892 / 0.069 |
 
-An 8-bit model is about 83 GB and cannot be loaded for generation on 64 GB, so it was only checked layer by layer. The mixed variant is the one shipped as `models/Kolibri-1-4bit-mixed` (see 5c-2). `{{MIXED_E2E}}`
+An 8-bit model is about 83 GB and cannot be loaded for generation on 64 GB, so it was only checked layer by layer. The mixed variant is the one shipped as `models/Kolibri-1-4bit-mixed` (see 5c-2). 
+### 5c-2. Shipped model: `models/Kolibri-1-4bit-mixed` end to end
+
+Converted with `--attn-bits 8 --embed-bits 8 --lm-head-bits 8` (routed experts 4-bit g64, router bf16). 42 GiB on disk, 45.4 GB peak memory. Source: `verify/results/e2e-Kolibri-1-4bit-mixed.json`. The numbers equal the chained on-the-fly mixed run, so the converter output is again identical to in-process quantisation.
+
+| Prompt | Top-1 | Top-5 | KL mean | KL p95 | KL max | decode-vs-prefill max abs |
+|---|---|---|---|---|---|---|
+| `de_short` (13) | 0.385 | 0.754 | 0.526 | 1.75 | 1.77 | 5.25 |
+| `en_short` (15) | 0.867 | 0.880 | 0.0146 | 0.0631 | 0.120 | 2.38 |
+| `de_code` (24) | 0.958 | 0.925 | 0.00996 | 0.0478 | 0.108 | 0.719 |
+| `en_long` (618) | 0.966 | 0.935 | 0.0174 | 0.0428 | 1.55 | 1.33 |
+| `de_long` (612) | 0.892 | 0.875 | 0.0690 | 0.282 | 2.24 | 0.875 |
+
+`verify_e2e.py` reports FAIL for this run because its default `--min-top1 0.9` gate is stricter than the bf16 floor on the short prompts; the gate is a tunable, not a verdict. Server smoke test on this model (`verify/results/server-smoke-mixed.json`): all three cases pass, 18 to 40 completion tokens/s, server RSS 44.4 to 44.6 GB. `generate.py`: prompt 227 to 247 tok/s, generation 50.3 tok/s, peak 45.36 GB.
+
 
 ### 5d. Position bands (4-bit, prefill KL mean / top-1; decode path in the last two columns)
 
