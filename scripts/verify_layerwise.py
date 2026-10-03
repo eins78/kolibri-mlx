@@ -25,7 +25,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--ref-dir", default=os.path.join(ROOT, "verify/out/reference"))
     ap.add_argument("--config", help="config.json (default: HF snapshot)")
-    ap.add_argument("--checkpoint", help="HF checkpoint dir/repo for Checkpoint")
+    ap.add_argument("--checkpoint", default="Aleph-Alpha/Kolibri-1", help="HF checkpoint dir/repo for Checkpoint")
     ap.add_argument("--mlx-model", help="load layer weights from this mlx-lm dir")
     ap.add_argument("--dtype", default="bfloat16", choices=list(DTYPES))
     ap.add_argument("--layers", help="range a-b inclusive, or single index")

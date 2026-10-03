@@ -210,18 +210,20 @@ def main():
         log(f"{label:10s} {time.time() - t:6.1f}s  total {time.time() - T0:7.1f}s  "
             f"mlx peak {mx.get_peak_memory() / 1e9:5.2f} GB  rss {rss_gb():5.2f} GB")
 
-    def do_global(name, module, weights, prefix):
-        module.load_weights(weights, strict=True)
-        quantize_and_collect(module, prefix, writer, quant, q)
+    def do_global(prefix, name, module, weight):
+        # nn.quantize swaps children only, so the module needs a parent
+        holder = nn.Module()
+        holder[name] = module
+        holder.load_weights([(f"{name}.weight", weight)], strict=True)
+        quantize_and_collect(holder, prefix, writer, quant, q)
 
     glob = ck.global_tensors(torch.bfloat16)
     if margs.tie_word_embeddings:
         glob.pop("lm_head.weight", None)
 
     def embed():
-        w = {"weight": to_mx(glob.pop("model.embed_tokens.weight"))}
-        do_global("embed", nn.Embedding(margs.vocab_size, margs.hidden_size), list(w.items()),
-                  "model.embed_tokens.")
+        do_global("model.", "embed_tokens", nn.Embedding(margs.vocab_size, margs.hidden_size),
+                  to_mx(glob.pop("model.embed_tokens.weight")))
     step("embed", embed)
 
     for i in range(n_layers):
@@ -234,14 +236,14 @@ def main():
         step(f"layer {i}", layer)
 
     def norm():
-        m = nn.RMSNorm(margs.hidden_size, eps=margs.rms_norm_eps)
-        do_global("norm", m, [("weight", to_mx(glob.pop("model.norm.weight")))], "model.norm.")
+        do_global("model.", "norm", nn.RMSNorm(margs.hidden_size, eps=margs.rms_norm_eps),
+                  to_mx(glob.pop("model.norm.weight")))
     step("norm", norm)
 
     if not margs.tie_word_embeddings:
         def head():
-            m = nn.Linear(margs.hidden_size, margs.vocab_size, bias=False)
-            do_global("lm_head", m, [("weight", to_mx(glob.pop("lm_head.weight")))], "lm_head.")
+            do_global("", "lm_head", nn.Linear(margs.hidden_size, margs.vocab_size, bias=False),
+                      to_mx(glob.pop("lm_head.weight")))
         step("lm_head", head)
 
     writer.finish()
