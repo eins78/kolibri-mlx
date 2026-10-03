@@ -14,7 +14,9 @@ Verification verdict as currently known:
 
 ### Verdict (to be finalised)
 
-{{VERDICT}}
+**The port is correct.** Run in fp32, layer by layer from the real embedding through `lm_head` with no teacher forcing, the MLX implementation reproduces the fp32 torch reference on all five prompts: top-1 agreement 1.000, top-5 1.000, mean KL about 1e-11, max logit difference at most 2.3e-4, identical expert selection at every layer (`verify/results/chain-fp32.json`).
+
+**The shipped model is a 4-bit quantisation and is measurably lossy.** The reference deployment itself runs in bf16 with FP8 activations, so the yardstick for a quantised model is the bf16 chained run, not fp32. Against the fp32 reference on the two long prompts, bf16 gives top-1 0.968 / 0.931 and mean KL 0.008 / 0.036; the shipped mixed 4-bit model gives top-1 0.966 / 0.892 and mean KL 0.017 / 0.069 (plain 4-bit: 0.905 / 0.845 and 0.080 / 0.154). 8-bit would be lossless relative to bf16 but does not fit in 64 GB. Numbers in section 5. Whether this loss is acceptable depends on the evaluation; see Interpretation.
 
 ## 1. Quick start
 
@@ -248,7 +250,15 @@ The tiny-model test (`tests/test_kolibri1.py::test_cache_consistency`, `scripts/
 
 ### Interpretation
 
-{{INTERPRETATION}}
+Three effects are separated by the runs above:
+
+1. **Implementation error: none measurable.** fp32 teacher-forced per layer (rel error <= 7e-6) and fp32 chained end to end (KL 1e-11, top-1 1.000) both match. The mask semantics (513 keys including self), RoPE placement, router, shared expert and sandwich norms are therefore right, including beyond the sliding window.
+2. **bf16 numerics.** In bf16 the same code drifts from fp32 over 50 layers: residual relative error grows to about 0.1 to 0.3 by layer 24 to 35 and expert-set agreement falls to about 70 %. Two properties of this model cause it. The top-6 selection among 384 experts is made on `logits + bias` where the bias dominates and margins between the 6th and 7th expert are tiny, so bf16 rounding flips experts; and sink tokens carry massive activations (residual max 6393 at layer 35, position 0 of `en_long`, against a median of 77), which amplify rounding. The 13-token `de_short` prompt is all early positions and has close next-token distributions, so it is noisy in every run including bf16 and should not be read as a quantisation signal. vLLM's own bf16 + FP8-activation path has the same floor, so bit-exactness with production is not a meaningful target.
+3. **Quantisation loss.** 8-bit matches bf16. Plain 4-bit g64 multiplies the KL gap by 4 to 10 on the long prompts. Keeping attention, shared expert, embeddings and `lm_head` at 8 bits (1.2 GB more) halves that gap; the remainder comes from the routed experts, which hold 75.5 of 78 B parameters and must stay 4-bit to fit in 64 GB. Group size 32 for the experts helps a little more but costs 4.7 GB and was not shipped.
+
+The decode-versus-prefill differences on early positions (section 5e) are the same bf16 amplification seen from a different angle: in fp32 the two paths agree to 1e-6, and in bf16 at late positions they agree to KL 0.0035. Changing the quantisation of the sink-token path (for example keeping layer 0 or the first positions in higher precision) was not explored.
+
+Practical reading: for evaluation at the recommended sampling settings, expect the mixed 4-bit model to behave like Kolibri 1 with a small amount of added noise, strongest on the first tokens of a context. If a benchmark is sensitive to that, compare against an 8-bit run on a larger machine.
 
 ### What vLLM does differently from the fp32 reference
 
