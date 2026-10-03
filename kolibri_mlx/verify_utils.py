@@ -85,3 +85,39 @@ def route_inds(layer, h, mask):
     k = moe.top_k
     inds = mx.argpartition(biased, kth=-k, axis=-1)[..., -k:]
     return mx.sort(inds, axis=-1)
+
+
+# ---- logit metrics (shared by verify_e2e and verify_layerwise --chain) ----
+
+def logsoftmax(x):
+    x = x.astype(np.float64)
+    m = x.max(-1, keepdims=True)
+    return x - m - np.log(np.exp(x - m).sum(-1, keepdims=True))
+
+
+def kl_rows(ref, mine, chunk=32):
+    out = []
+    for s in range(0, len(ref), chunk):
+        lp, lq = logsoftmax(ref[s:s + chunk]), logsoftmax(mine[s:s + chunk])
+        out.append((np.exp(lp) * (lp - lq)).sum(-1))
+    return np.concatenate(out)
+
+
+def topk(x, k):
+    idx = np.argpartition(-x, k - 1, axis=-1)[..., :k]
+    o = np.take_along_axis(x, idx, -1).argsort(-1)[..., ::-1]
+    return np.take_along_axis(idx, o, -1)
+
+
+def logit_metrics(ref, mine):
+    """Per-prompt metrics of mlx logits vs reference logits ([T,V] each)."""
+    tr, tm = topk(ref, 5), topk(mine, 5)
+    kl = kl_rows(ref, mine)
+    return dict(
+        top1=float((mine.argmax(-1) == ref.argmax(-1)).mean()),
+        top5=float(np.mean([len(set(p) & set(q)) / 5 for p, q in zip(tr, tm)])),
+        kl_mean=float(kl.mean()), kl_p95=float(np.percentile(kl, 95)),
+        kl_max=float(kl.max()),
+        max_abs_logit=float(np.abs(mine - ref).max()),
+        worst_kl_pos=int(kl.argmax()),
+    ), tr, tm

@@ -16,28 +16,9 @@ import mlx_lm
 from mlx_lm.models.cache import make_prompt_cache
 
 import kolibri_mlx.register  # noqa: F401
-from kolibri_mlx.verify_utils import require
+from kolibri_mlx.verify_utils import (kl_rows, logit_metrics, logsoftmax,
+                                      require, topk)
 from verify.prompts import PROMPTS
-
-
-def logsoftmax(x):
-    x = x.astype(np.float64)
-    m = x.max(-1, keepdims=True)
-    return x - m - np.log(np.exp(x - m).sum(-1, keepdims=True))
-
-
-def kl_rows(ref, mine, chunk=32):
-    out = []
-    for s in range(0, len(ref), chunk):
-        lp, lq = logsoftmax(ref[s:s + chunk]), logsoftmax(mine[s:s + chunk])
-        out.append((np.exp(lp) * (lp - lq)).sum(-1))
-    return np.concatenate(out)
-
-
-def topk(x, k):
-    idx = np.argpartition(-x, k - 1, axis=-1)[..., :k]
-    o = np.take_along_axis(x, idx, -1).argsort(-1)[..., ::-1]
-    return np.take_along_axis(idx, o, -1)
 
 
 def main():
@@ -85,16 +66,10 @@ def main():
         wall = time.time() - t0
         assert mine.shape == ref.shape, (mine.shape, ref.shape)
 
-        top1 = float((mine.argmax(-1) == ref.argmax(-1)).mean())
-        tr, tm = topk(ref, 5), topk(mine, 5)
-        top5 = float(np.mean([len(set(p) & set(q)) / 5 for p, q in zip(tr, tm)]))
-        kl = kl_rows(ref, mine)
-        w = int(kl.argmax())
+        m, tr, tm = logit_metrics(ref, mine)
+        top1, w = m["top1"], m["worst_kl_pos"]
         dec = lambda ids: [tok.decode([int(i)]) for i in ids]
-        r = dict(prompt=n, T=T, top1=top1, top5=top5, kl_mean=float(kl.mean()),
-                 kl_p95=float(np.percentile(kl, 95)), kl_max=float(kl.max()),
-                 max_abs_logit=float(np.abs(mine - ref).max()),
-                 worst_kl_pos=w,
+        r = dict(prompt=n, T=T, **m,
                  worst_ref_top3=dec(tr[w][:3]), worst_mlx_top3=dec(tm[w][:3]))
 
         def top5p(row):
