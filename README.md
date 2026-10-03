@@ -4,15 +4,9 @@ MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx-lm, with a
 
 ## Status
 
-The 4-bit model loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. It takes 44 GB on disk and 44.1 GB peak memory at load. Generation runs at about 50 tok/s. The OpenAI-compatible server works with reasoning on and off and parses a tool call. No upload, PR or other public action has been done.
+Done. Two 4-bit conversions load with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB: the shipped `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) and a plain uniform 4-bit one (41 GiB, 44.1 GB peak). Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. No upload, PR or other public action has been done.
 
-Verification verdict as currently known:
-
-* The model code is exact. Teacher-forced, layer by layer against the fp32 torch reference: relative error at most 6.8e-6 (median 3.6e-7), expert sets identical on 100.0 % of tokens (2 of 64,100 token-layer pairs differ, both exact ties).
-* End to end, the 4-bit model is noticeably worse than the reference. Top-1 agreement per prompt is 0.54 to 1.00 and KL (mean) is 0.08 to 1.05, see section 5c.
-* Even unquantised bf16 drifts from the fp32 reference when the layers are chained. Top-1 is 0.77 to 1.00 and KL (mean) 0.0007 to 0.49, see section 5b.
-
-### Verdict (to be finalised)
+### Verdict
 
 **The port is correct.** Run in fp32, layer by layer from the real embedding through `lm_head` with no teacher forcing, the MLX implementation reproduces the fp32 torch reference on all five prompts: top-1 agreement 1.000, top-5 1.000, mean KL about 1e-11, max logit difference at most 2.3e-4, identical expert selection at every layer (`verify/results/chain-fp32.json`).
 
