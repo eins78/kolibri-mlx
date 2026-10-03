@@ -51,7 +51,7 @@ curl http://localhost:8080/v1/chat/completions -H 'Content-Type: application/jso
 
 With reasoning on, the reply carries the thinking in `message.reasoning`. Tool calls (Hermes style) come back in `message.tool_calls`.
 
-Smoke test (starts its own server, writes `verify/out/server-smoke.json`):
+Smoke test (starts its own server, writes `verify/results/server-smoke.json`):
 
 ```bash
 uv run python scripts/smoke_server.py --model models/Kolibri-1-4bit-mixed
@@ -142,14 +142,14 @@ Both sides were checked. vLLM 0.29 (flash-attn backend) passes `window_size=(sli
 
 | MLX dtype | max rel | median rel | expert-set agreement | notes |
 |---|---|---|---|---|
-| float32 | 6.76e-6 | 3.64e-7 | 100.0 % of tokens (2 of 64,100 token-layer pairs differ) | passes the 1e-3 bound. The 2 tokens are in layer 0 of `en_long`: exact ties at fp32 noise. |
+| float32 | 6.76e-6 | 3.64e-7 | 100.0 % of tokens (2 token-layer pairs differ at fp32 noise level) | passes the 1e-3 bound. The 2 tokens are in layer 0 of `en_long`: exact ties at fp32 noise. |
 | bfloat16 | 0.0382 | 0.00417 | 98.4 % mean over rows, minimum 80 % (13-token prompt) | one row above the 2e-2 bound: layer 35, `de_long`. |
 
 The float32 row proves that the MLX model implements the reference math. In bf16, the worst row (layer 35, `de_long`) is one token with max-abs error 661 at a massive-activation token where an expert flipped. Its mean-abs error is 0.0377 and the cosine similarity of the last position is 1.0 to 6 digits.
 
 ### 5b. Chained bf16 (no teacher forcing, unquantised weights)
 
-Final logits against the reference. Source: `verify/out/chain-bf16.json`.
+Final logits against the reference. Source: `verify/results/chain-bf16.json`.
 
 | Prompt | Top-1 | Top-5 | KL mean | KL p95 | KL max |
 |---|---|---|---|---|---|
@@ -163,7 +163,7 @@ Expert-set agreement over all layers and tokens drops to 81.2 % when the layers 
 
 ### 5c. 4-bit end to end (converted model, prefill)
 
-Source: `verify/out/e2e-Kolibri-1-4bit.json`. The on-the-fly quantised chain run (`verify/out/chain-4bit.json`, bits 4, group 64) gives the same logit numbers to three digits, so the converter output equals in-process quantisation of the same weights.
+Source: `verify/results/e2e-Kolibri-1-4bit.json`. The on-the-fly quantised chain run (`verify/results/chain-4bit.json`, bits 4, group 64) gives the same logit numbers to three digits, so the converter output equals in-process quantisation of the same weights.
 
 | Prompt | Top-1 | Top-5 | KL mean | KL p95 | KL max |
 |---|---|---|---|---|---|
@@ -282,9 +282,11 @@ So even a perfect port will not be bit-exact with the production stack. A bf16-l
 
 ## 5. Eval readiness
 
+The tables in this section were measured on the plain 4-bit model. The shipped mixed model behaves the same for speed and memory within 3 %: 50.3 tok/s generation, 45.4 GB peak, all smoke cases pass (section 5c-2).
+
 ### Server smoke test
 
-`scripts/smoke_server.py` against `models/Kolibri-1-4bit` through `serve.py`, sampling `temperature 1.0, top_p 0.97, top_k 128`, max 400 tokens. Model load took 5.0 s. Source: `verify/out/server-smoke.json`. All three cases passed.
+`scripts/smoke_server.py` against `models/Kolibri-1-4bit` through `serve.py`, sampling `temperature 1.0, top_p 0.97, top_k 128`, max 400 tokens. Model load took 5.0 s. Source: `verify/results/server-smoke.json`. All three cases passed.
 
 | Case | Reasoning | Result | Prompt tok | Completion tok | Wall s | Completion tok / wall s |
 |---|---|---|---|---|---|---|
@@ -313,16 +315,16 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 
 ## 6. Known gaps and open questions
 
-* 4-bit quality. End to end the 4-bit model disagrees with the reference more than bf16 does. Whether this is inherent to 4-bit affine quantisation with group size 64 or can be reduced (8-bit attention, finer groups, different treatment of embeddings and `lm_head`) is open. The 8-bit and mixed runs are pending.
-* Early-position sensitivity. Positions 0 to 15 are the worst, in prefill and in decode. Massive activations in the reference at those positions are the likely cause. This is a hypothesis, not a result.
-* Even bf16 drifts when chained, and the drift is concentrated on short prompts. Short prompts are a large share of typical eval items. Check this in your own suites.
-* No 8-bit model can be loaded on 64 GB. Checks of 8-bit are layer by layer only.
-* The transformers warning about an "incorrect regex pattern" (Mistral regex) is a false alarm. The raw `tokenizers` library, the transformers default and `fix_mistral_regex=True` give identical token ids on all verification prompts and on edge cases. The other warning, about model type `kolibri1`, is harmless too.
-* No reference with the real production stack (vLLM on CUDA, FP8 activations) was available. Everything is compared with our fp32 CPU reference.
+* 4-bit quality. The routed experts (75.5 of 78 B parameters) must be 4-bit to fit in 64 GB, and that costs a measurable amount against the bf16 floor (section 5c, 5c-2). The shipped mixed variant halves the gap of plain 4-bit. Whether the remaining loss is acceptable is a question for the evaluation suites. An 8-bit model (about 83 GB) is lossless relative to bf16 but needs a larger machine.
+* Early-position sensitivity. Positions 0 to 15 are the worst in bf16 and in 4-bit, in prefill and in decode, while fp32 is exact everywhere. Massive activations at the sink token (residual max 6393 at layer 35 versus a median of 77) and near-tie expert selection are the measured correlates; the causal story is a hypothesis. Keeping the first layers or the sink path in higher precision was not tried.
+* Even bf16 drifts when chained, most on short prompts. Short prompts are a large share of typical eval items. Check this in your own suites.
+* No reference with the real production stack (vLLM on CUDA, bf16 residual, FP8 activations) was available. Everything is compared with the fp32 CPU reference built from the plugin's math; the production stack has its own bf16-level deviation from that.
 * The dequantisation check covers shard 1 of the BF16 repo only.
+* The transformers warning about an "incorrect regex pattern" (Mistral regex) is a false alarm. The raw `tokenizers` library, the transformers default and `fix_mistral_regex=True` give identical token ids on all verification prompts and on edge cases. The warning about model type `kolibri1` is harmless too.
 * The upstream mlx-lm PR needs your own description. mlx-lm policy: AI use must be disclosed and PR text must not be AI-written. `drafts/mlx-lm-pr.md` lists facts and tasks only.
-* No upload to Hugging Face has been done. `drafts/model-card.md` is a draft with `{{...}}` fields.
-* The repo is private.
+* No upload to Hugging Face has been done. `drafts/model-card.md` is a draft.
+* Serving leaves only 8 to 12 % of system memory free next to the Docker stack. Long evaluation runs should not share the machine with other large jobs.
+* The repo is private. No `LICENSE` file for our own code yet (CC0 intended).
 
 ## 7. Repository layout
 
@@ -352,7 +354,8 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 | `scripts/memguard.sh` | kills a job when system free memory is low |
 | `tests/test_kolibri1.py` | pytest suite on a tiny random model with an independent torch reference |
 | `verify/prompts.py` | the five verification prompts |
-| `verify/out/` | result JSON files and reference activations (git-ignored) |
+| `verify/results/` | result JSON files of the runs quoted in this README (tracked) |
+| `verify/out/` | fresh run output and reference activations (git-ignored) |
 | `drafts/mlx-lm-pr.md` | notes for the upstream PR |
 | `drafts/model-card.md` | draft model card |
 | `models/` | converted models (git-ignored) |
@@ -375,29 +378,29 @@ uv run pytest tests -q
 
 # 1. download weights (FP8 for conversion; BF16 only for the dequant check)
 hf download Aleph-Alpha/Kolibri-1
-hf download Aleph-Alpha/Kolibri-1-BF16 --include "config.json" "model.safetensors.index.json" "model-00001-of-00032.safetensors"   # optional, for check_dequant
+hf download Aleph-Alpha/Kolibri-1-BF16 model-00001-of-00032.safetensors config.json model.safetensors.index.json   # optional, for check_dequant
 uv run python scripts/check_dequant.py --shard 1                  # optional
 
-# 2. convert
-uv run python scripts/convert.py --log
+# 2. convert (shipped variant; drop the *-bits flags for plain uniform 4-bit)
+uv run python scripts/convert.py --attn-bits 8 --embed-bits 8 --lm-head-bits 8 --mlx-path models/Kolibri-1-4bit-mixed --log
 
 # 3. fp32 torch reference (about 2.5 min per prompt set; peak RSS about 26 GiB)
 uv run python scripts/reference_run.py
 
 # 4. layer-by-layer checks
-uv run python scripts/verify_layerwise.py --dtype float32  --out verify/out/layerwise-float32.json
-uv run python scripts/verify_layerwise.py --dtype bfloat16 --out verify/out/layerwise-bfloat16.json
-uv run python scripts/verify_layerwise.py --dtype bfloat16 --chain --out verify/out/chain-bf16.json
-uv run python scripts/verify_layerwise.py --dtype bfloat16 --chain --bits 4 --out verify/out/chain-4bit.json
+uv run python scripts/verify_layerwise.py --dtype float32  --out verify/results/layerwise-float32.json
+uv run python scripts/verify_layerwise.py --dtype bfloat16 --out verify/results/layerwise-bfloat16.json
+uv run python scripts/verify_layerwise.py --dtype bfloat16 --chain --out verify/results/chain-bf16.json
+uv run python scripts/verify_layerwise.py --dtype bfloat16 --chain --bits 4 --out verify/results/chain-4bit.json
 
 # 5. end to end, position bands, decode consistency (4-bit model)
-uv run python scripts/verify_e2e.py --out verify/out/e2e-Kolibri-1-4bit.json
+uv run python scripts/verify_e2e.py --out verify/results/e2e-Kolibri-1-4bit.json
 uv run python scripts/check_position_bands.py
 uv run python scripts/check_decode_consistency.py
 
 # 6. serve, smoke test, speed
-uv run python scripts/smoke_server.py
-uv run python generate.py --model models/Kolibri-1-4bit -p "Schreibe einen kurzen Absatz über die Geschichte der Stadt Zürich." -m 256 --temp 1.0 --top-p 0.97 --top-k 128
+uv run python scripts/smoke_server.py --model models/Kolibri-1-4bit-mixed
+uv run python generate.py --model models/Kolibri-1-4bit-mixed -p "Schreibe einen kurzen Absatz über die Geschichte der Stadt Zürich." -m 256 --temp 1.0 --top-p 0.97 --top-k 128
 ```
 
-The exact flags used for the shipped result files are in the `opts` field of each JSON file. Check them before comparing numbers. Keep at least 15 GB of free memory when running steps 5 and 6, because the 4-bit model alone takes 44 GB.
+The exact flags used for the shipped result files are in the `opts` field of each JSON file. Check them before comparing numbers. Keep at least 15 GB of free memory when running steps 5 and 6, because the model alone takes 44 to 45 GB.
