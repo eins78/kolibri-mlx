@@ -1,0 +1,6 @@
+.venv/
+models/
+run/
+__pycache__/
+*.pyc
+.ckignore
