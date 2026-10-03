@@ -1,7 +1,6 @@
 # Copyright © 2026 Apple Inc.
 # SPDX-License-Identifier: MIT
 # Derived from mlx-lm: mlx_lm/models/qwen3_moe.py, cohere2.py and deepseek_v3.py.
-# Intended for upstream contribution to mlx-lm.
 
 from dataclasses import dataclass
 from typing import Any, List, Optional

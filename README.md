@@ -1,10 +1,10 @@
 # kolibri-mlx
 
-This is an MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx-lm, with a reproducible FP8-to-4-bit conversion and a numerical verification against a reference rebuilt from Aleph Alpha's vLLM plugin. The upstream mlx-lm pull request has not been opened yet.
+This is an MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx-lm, with a reproducible FP8-to-4-bit conversion and a numerical verification against a reference rebuilt from Aleph Alpha's vLLM plugin.
 
 ## Status
 
-Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. The converted model is published on the Hugging Face Hub as [`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit) (Apache 2.0, same files as `models/Kolibri-1-4bit-mixed` plus the model card). The owner's own evaluation suites were run against it: the MeteoSwiss forecast suite passes 78/91 deterministic cases and 4/4 judged ones; the Hermes B1 tool-calling eval is partial (3 of 8 cases, blocked by memory headroom on this machine). Numbers in section 6. No upstream mlx-lm PR or issue has been opened; the owner writes those.
+Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. The converted model is published on the Hugging Face Hub as [`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit) (Apache 2.0, same files as `models/Kolibri-1-4bit-mixed` plus the model card). The owner's own evaluation suites were run against it: the MeteoSwiss forecast suite passes 78/91 deterministic cases and 4/4 judged ones; the Hermes B1 tool-calling eval is partial (3 of 8 cases, blocked by memory headroom on this machine). Numbers in section 6.
 
 ### Verdict
 
@@ -14,7 +14,7 @@ Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit
 
 ## AI assistance
 
-The port, the scripts, the tests and this README were written by an AI coding agent (Claude Code, Claude Fable 5.1, with Opus and Sonnet subagents). It worked from written briefs by the repository owner, who directed and reviewed the work. The verification numbers were produced by the scripts in this repository. mlx-lm's contribution policy requires disclosure of AI use and a human-written PR description for any upstream submission.
+The port, the scripts, the tests and this README were written by an AI coding agent (Claude Code, Claude Fable 5.1, with Opus and Sonnet subagents). It worked from written briefs by the repository owner, who directed and reviewed the work. The verification numbers were produced by the scripts in this repository.
 
 ## 1. Quick start
 
@@ -359,7 +359,6 @@ B1-06 is scored from the steps that ran before the server died after the final s
 * No reference with the real production stack (vLLM on CUDA, bf16 residual, FP8 activations) was available. Everything is compared with the fp32 CPU reference built from the plugin's math; the production stack has its own bf16-level deviation from that.
 * The dequantisation check covers shard 1 of the BF16 repo only.
 * The transformers warning about an "incorrect regex pattern" (Mistral regex) is a false alarm. The raw `tokenizers` library, the transformers default and `fix_mistral_regex=True` give identical token ids on all verification prompts and on edge cases. The warning about model type `kolibri1` is harmless too.
-* The upstream mlx-lm PR needs the owner's own description. mlx-lm policy: AI use must be disclosed and PR text must not be AI-written.
 * The model is on the Hub under the owner's account ([`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit)). No `mlx-community` upload has been made.
 * Serving leaves only 8 to 12 % of system memory free next to the Docker stack. Long evaluation runs should not share the machine with other large jobs.
 
@@ -401,7 +400,7 @@ B1-06 is scored from the steps that ran before the server died after the final s
 The aim is the most permissive arrangement the upstream licences allow. Wholly original code keeps no rights. Derived code keeps its upstream licence and carries the upstream notice.
 
 * Default: CC0 1.0 Universal (`LICENSE`). This covers the converter, checkpoint reader, FP8 dequantisation, verification scripts, server wrappers and docs.
-* MIT: `kolibri_mlx/models/kolibri1.py`, derived from mlx-lm's `qwen3_moe.py`, `cohere2.py` and `deepseek_v3.py` (Apple Inc.). It is meant to be contributed to mlx-lm.
+* MIT: `kolibri_mlx/models/kolibri1.py`, derived from mlx-lm's `qwen3_moe.py`, `cohere2.py` and `deepseek_v3.py` (Apple Inc.).
 * Apache 2.0: `kolibri_mlx/reference_torch.py`, a transcription of the math of Aleph Alpha's `aleph_alpha_inference/kolibri1.py`. `tests/test_kolibri1.py` is Apache 2.0 AND MIT: the routing test is ported from the plugin, the model checks follow mlx-lm's test harness.
 * Weights: `Aleph-Alpha/Kolibri-1` and the converted models stay under Apache 2.0 by Aleph Alpha. They are not distributed here.
 

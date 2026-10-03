@@ -11,7 +11,7 @@ derived from other projects and keep the licence of those projects.
    Changes:    New model file for Kolibri 1 that combines the sparse MoE
                block of qwen3_moe, the sliding-window/global attention
                layout of cohere2 and the sigmoid router with score bias of
-               deepseek_v3. Intended for contribution to mlx-lm.
+               deepseek_v3.
 
 2. kolibri_mlx/reference_torch.py
    Upstream:   Aleph-Alpha/aleph-alpha-inference,
