@@ -4,7 +4,7 @@ This is an MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx
 
 ## Status
 
-Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. No upload, PR or other public action has been done. Results of the owner's own evaluation suites against the model go to `evals/RESULTS.md` (phase 2, in progress).
+Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. The converted model is published on the Hugging Face Hub as [`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit) (Apache 2.0, same files as `models/Kolibri-1-4bit-mixed` plus the model card). The owner's own evaluation suites were run against it: the MeteoSwiss forecast suite passes 78/91 deterministic cases and 4/4 judged ones; the Hermes B1 tool-calling eval is partial (3 of 8 cases, blocked by memory headroom on this machine). Numbers and baselines in `evals/RESULTS.md`. No upstream mlx-lm PR or issue has been opened; the owner writes those.
 
 ### Verdict
 
@@ -18,10 +18,13 @@ The port, the scripts, the tests and this README were written by an AI coding ag
 
 ## 1. Quick start
 
-Needs `uv`, Python 3.12, about 78 GB of disk for the FP8 source and 44 GB for the 4-bit output.
+Needs `uv` and Python 3.12. To skip the conversion, download the converted model from the Hub (42 GiB) instead of steps 1 and 2; stock mlx-lm cannot load it without this repository's `kolibri_mlx.register`, which `generate.py` and `serve.py` import.
 
 ```bash
 uv sync
+
+# 0. (shortcut) use the published conversion instead of steps 1 and 2
+hf download eins78/Kolibri-1-mlx-mixed-4-8-bit --local-dir models/Kolibri-1-4bit-mixed
 
 # 1. download the FP8 checkpoint (78 GB) into the Hugging Face cache
 hf download Aleph-Alpha/Kolibri-1
@@ -327,7 +330,7 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 * The dequantisation check covers shard 1 of the BF16 repo only.
 * The transformers warning about an "incorrect regex pattern" (Mistral regex) is a false alarm. The raw `tokenizers` library, the transformers default and `fix_mistral_regex=True` give identical token ids on all verification prompts and on edge cases. The warning about model type `kolibri1` is harmless too.
 * The upstream mlx-lm PR needs your own description. mlx-lm policy: AI use must be disclosed and PR text must not be AI-written. `drafts/mlx-lm-pr.md` lists facts and tasks only.
-* No upload to Hugging Face has been done. `drafts/model-card.md` is a draft.
+* The model is on the Hub under the owner's account ([`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit)); `drafts/model-card.md` is the card as uploaded. No `mlx-community` upload has been made.
 * Serving leaves only 8 to 12 % of system memory free next to the Docker stack. Long evaluation runs should not share the machine with other large jobs.
 
 ## 7. Repository layout
@@ -336,10 +339,11 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 |---|---|
 | `docs/BRIEF-phase1.md` | phase 1 task brief and constraints |
 | `docs/BRIEF-phase2.md` | phase 2 brief (evals, licences, publication) |
+| `docs/BRIEF-phase3.md` | phase 3 brief (Hugging Face upload) |
 | `LICENSE` | CC0 1.0 Universal, default licence |
 | `LICENSES/` | full texts of the Apache-2.0 and MIT licences used by derived files |
 | `NOTICE` | derived files, upstreams, copyrights and changes |
-| `evals/` | evaluation suites run against the model; see `evals/RESULTS.md` (not created yet) |
+| `evals/` | evaluation suites run against the model; results in `evals/RESULTS.md` |
 | `NOTES.md` | running log: decisions and numbers |
 | `README.md` | this file |
 | `pyproject.toml`, `uv.lock` | `uv` project, Python 3.12 |
