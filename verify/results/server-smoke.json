@@ -1,0 +1,78 @@
+{
+  "model": "models/Kolibri-1-4bit",
+  "sampling": {
+    "temperature": 1.0,
+    "top_p": 0.97,
+    "top_k": 128
+  },
+  "max_tokens": 400,
+  "load_s": 5.047375202178955,
+  "no_assert": false,
+  "results": [
+    {
+      "name": "de_reasoning_low",
+      "prompt": "Erkläre in zwei Sätzen, warum der Himmel blau ist.",
+      "reasoning_mode": "on",
+      "message": {
+        "role": "assistant",
+        "content": "\n\nDas Sonnenlicht besteht aus vielen Farben, wobei blaues Licht eine kurze Wellenlänge hat. Die Luftmoleküle streuen kurzwelliges blaues Licht stärker als andere Farben, sodass es aus allen Richtungen am Himmel sichtbar wird.",
+        "reasoning": "\nGefragt ist: \"Erkläre in zwei Sätzen, warum der Himmel blau ist.\" Sprache: Deutsch. Ich muss genau zwei Sätze schreiben. Inhalt: Rayleigh scattering: Sonnenlicht wird von Luftmolekülen gestreut, kürzere Wellenlängen (blau) stärker gestreut, dadurch erscheint der Himmel blau. Wichtig: zwei Sätze. Satz 1: \"Das Sonnenlicht besteht aus vielen Farben, wobei blaues Licht eine kurze Wellenlänge hat.\" Satz 2: \"Die Luftmoleküle streuen kurzwelliges blaues Licht stärker als andere Farben, sodass es aus allen Richtungen am Himmel sichtbar wird.\" Das sind zwei Sätze. Prüfe: Satz 1 endet Punkt. Satz 2 endet Punkt. Keine Abkürzung mit Punkt. Antwort nur zwei Sätze.\n"
+      },
+      "finish_reason": "stop",
+      "prompt_tokens": 57,
+      "completion_tokens": 193,
+      "wall_s": 12.42,
+      "tokens_per_s": 15.54,
+      "server_rss_gb": 43.09,
+      "mem_free_pct": "11%",
+      "failures": [],
+      "tool_call_ok": null
+    },
+    {
+      "name": "en_no_reasoning",
+      "prompt": "Give me three short tips for writing clear commit messages.",
+      "reasoning_mode": "off",
+      "message": {
+        "role": "assistant",
+        "content": "1. **Use the imperative mood**: Write messages as if you're commanding the codebase, e.g., \"Add validation\" instead of \"Added validation.\"\n2. **Keep it concise**: Aim for a single short line (≤50 characters) for the subject; elaborate in the body if needed.\n3. **Be specific**: Describe *what* changed and *why*, not just the technical mechanics—focus on the impact of the change."
+      },
+      "finish_reason": "stop",
+      "prompt_tokens": 48,
+      "completion_tokens": 91,
+      "wall_s": 2.21,
+      "tokens_per_s": 41.11,
+      "server_rss_gb": 43.09,
+      "mem_free_pct": "11%",
+      "failures": [],
+      "tool_call_ok": null
+    },
+    {
+      "name": "de_tool_call",
+      "prompt": "Wie ist das Wetter in Zürich?",
+      "reasoning_mode": "off",
+      "message": {
+        "role": "assistant",
+        "content": null,
+        "tool_calls": [
+          {
+            "function": {
+              "name": "get_weather",
+              "arguments": "{\"city\": \"Zurich\"}"
+            },
+            "type": "function",
+            "id": "a2adda0d-d5b0-4ed4-a0ad-ce1ca0adebe8"
+          }
+        ]
+      },
+      "finish_reason": "tool_calls",
+      "prompt_tokens": 187,
+      "completion_tokens": 23,
+      "wall_s": 1.01,
+      "tokens_per_s": 22.86,
+      "server_rss_gb": 43.1,
+      "mem_free_pct": "11%",
+      "failures": [],
+      "tool_call_ok": true
+    }
+  ]
+}
