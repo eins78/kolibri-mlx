@@ -4,7 +4,7 @@ This is an MLX port of Aleph Alpha's Kolibri 1 (`Aleph-Alpha/Kolibri-1`) for mlx
 
 ## Status
 
-Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. The converted model is published on the Hugging Face Hub as [`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit) (Apache 2.0, same files as `models/Kolibri-1-4bit-mixed` plus the model card). The owner's own evaluation suites were run against it: the MeteoSwiss forecast suite passes 78/91 deterministic cases and 4/4 judged ones; the Hermes B1 tool-calling eval is partial (3 of 8 cases, blocked by memory headroom on this machine). Numbers and baselines in `evals/RESULTS.md`. No upstream mlx-lm PR or issue has been opened; the owner writes those.
+Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit, everything else 8-bit, 42 GiB on disk, 45.4 GB peak) loads with mlx-lm 0.32.0 on an Apple M4 Pro with 64 GB. A plain uniform 4-bit conversion (41 GiB, 44.1 GB peak) was measured for comparison and then deleted to free disk; its numbers are kept in section 5. Generation runs at about 50 tok/s. The OpenAI-compatible server answers German and English prompts with reasoning on and off and parses a tool call. The converted model is published on the Hugging Face Hub as [`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit) (Apache 2.0, same files as `models/Kolibri-1-4bit-mixed` plus the model card). The owner's own evaluation suites were run against it: the MeteoSwiss forecast suite passes 78/91 deterministic cases and 4/4 judged ones; the Hermes B1 tool-calling eval is partial (3 of 8 cases, blocked by memory headroom on this machine). Numbers in section 6. No upstream mlx-lm PR or issue has been opened; the owner writes those.
 
 ### Verdict
 
@@ -14,7 +14,7 @@ Done. The shipped conversion `models/Kolibri-1-4bit-mixed` (routed experts 4-bit
 
 ## AI assistance
 
-The port, the scripts, the tests and this README were written by an AI coding agent (Claude Code, Claude Fable 5.1, with Opus and Sonnet subagents). It worked from the brief in `docs/BRIEF-phase1.md` and was directed and reviewed by the repository owner. The verification numbers were produced by the scripts in this repository. mlx-lm's contribution policy requires disclosure of AI use and a human-written PR description for any upstream submission.
+The port, the scripts, the tests and this README were written by an AI coding agent (Claude Code, Claude Fable 5.1, with Opus and Sonnet subagents). It worked from written briefs by the repository owner, who directed and reviewed the work. The verification numbers were produced by the scripts in this repository. mlx-lm's contribution policy requires disclosure of AI use and a human-written PR description for any upstream submission.
 
 ## 1. Quick start
 
@@ -313,7 +313,7 @@ The wall-clock rates include prompt processing and request overhead, so they are
 
 ### Memory headroom
 
-System free memory was 8 to 13 % while serving on this 64 GB machine with Docker running. There were no memory-pressure events. It is tight. Close other large processes before long evaluation runs. `scripts/memguard.sh <floor_pct> <logfile> <cmd...>` kills a job when system free memory falls under the floor.
+System free memory was 8 to 13 % while serving on this 64 GB machine with Docker running. There were no memory-pressure events. It is tight. Close other large processes before long evaluation runs.
 
 ### Known mlx-lm limitations for this model
 
@@ -321,7 +321,37 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 * `--max-kv-size` is ignored, because the model defines `make_cache`.
 * Prompt-cache trimming stops working once a sliding layer has passed 513 tokens, so prefix caching beyond that point cannot be reused.
 
-## 6. Known gaps and open questions
+## 6. Evaluation
+
+Two of the owner's own evaluation suites were run against `models/Kolibri-1-4bit-mixed` through `serve.py` (mlx_lm.server 0.32.0, `temperature 0`, reasoning off) on 2026-10-03. The suites, their harnesses and the raw outputs are not part of this repository; the numbers are reported here as results.
+
+### MeteoSwiss forecast comprehension
+
+91 deterministic cases (an English question over an injected MeteoSwiss `getLocalForecast` JSON, answered as one JSON line and scored by the suite's scorer) plus 4 open-ended cases graded by Claude Opus 4.8. **78 of 91 passed (85.7 %)**, judge slice 4 of 4.
+
+| Slice | Pass | Note |
+|---|---|---|
+| primary fixture, local-time questions | 9 / 9 | |
+| primary fixture, UTC questions | 5 / 9 | all four misses are time-zone conversions: exact-hour lookups and the DST-offset question |
+| 7-day fixture, local / UTC / compact | 4 / 5 each | the same 4-hour range sum every time |
+| multi-series 2x2 factorial (56 cases) | 50 / 56 | 89.3 % |
+| station mock | 2 / 2 | |
+
+The suite's July 2026 baseline over 13 hosted models on the primary fixture (local / UTC) is frontier 93 % / 58 %, cheap 100 % / 54 %, tiny 86 % / 46 %. Kolibri's 100 % / 56 % is cheap-tier level, and its UTC misses fall in the same question families where every tier collapsed. Mean latency 5.5 s per case (median 4.5 s, max 16.4 s).
+
+### Hermes B1 tool-calling eval
+
+Eight agentic "cron job" cases with a frozen 34k-token system prompt, 59 tools, a simulated environment and a deterministic scorer (completion, restraint, reliability, efficiency; 20-iteration cap). **Partial: 3 of 8 cases ran.**
+
+| Case | Completion | Restraint | Reliability | Efficiency | Tool calls (par) | Wall |
+|---|---|---|---|---|---|---|
+| B1-05 infrastructure sweep, nothing to do | 100 | 100 | 100 | 100 | 6 (8) | 105 s |
+| B1-06 archive finished stories, notice the non-story | 100 | 100 | 100 | 100 | 8 (11) | 188 s |
+| B1-01 morning briefing digest | 100 | 100 | 100 | 0 | 25 (9) | 909 s, iteration cap |
+
+B1-06 is scored from the steps that ran before the server died after the final step. The other five cases did not run: the server died from Metal out-of-memory during the 34k-token prefill (reduced with `--prompt-cache-size 1`, `--prefill-step-size 1024` and `MLX_CACHE_LIMIT_GB=2`), and afterwards every fresh model load was paged out by macOS next to the other resident processes on this 64 GB machine. That is a memory limit of the machine, not a model result. Read the three cases as evidence that tool calling, multi-step tool use and the long prompt work; efficiency is the open question. Hosted models in the same suite finish these jobs in 13 to 38 s per case on average.
+
+## 7. Known gaps and open questions
 
 * 4-bit quality. The routed experts (75.5 of 78 B parameters) must be 4-bit to fit in 64 GB, and that costs a measurable amount against the bf16 floor (section 5c, 5c-2). The shipped mixed variant halves the gap of plain 4-bit. Whether the remaining loss is acceptable is a question for the evaluation suites. An 8-bit model (about 83 GB) is lossless relative to bf16 but needs a larger machine.
 * Early-position sensitivity. Positions 0 to 15 are the worst in bf16 and in 4-bit, in prefill and in decode, while fp32 is exact everywhere. Massive activations at the sink token (residual max 6393 at layer 35 versus a median of 77) and near-tie expert selection are the measured correlates; the causal story is a hypothesis. Keeping the first layers or the sink path in higher precision was not tried.
@@ -329,22 +359,17 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 * No reference with the real production stack (vLLM on CUDA, bf16 residual, FP8 activations) was available. Everything is compared with the fp32 CPU reference built from the plugin's math; the production stack has its own bf16-level deviation from that.
 * The dequantisation check covers shard 1 of the BF16 repo only.
 * The transformers warning about an "incorrect regex pattern" (Mistral regex) is a false alarm. The raw `tokenizers` library, the transformers default and `fix_mistral_regex=True` give identical token ids on all verification prompts and on edge cases. The warning about model type `kolibri1` is harmless too.
-* The upstream mlx-lm PR needs your own description. mlx-lm policy: AI use must be disclosed and PR text must not be AI-written. `drafts/mlx-lm-pr.md` lists facts and tasks only.
-* The model is on the Hub under the owner's account ([`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit)); `drafts/model-card.md` is the card as uploaded. No `mlx-community` upload has been made.
+* The upstream mlx-lm PR needs the owner's own description. mlx-lm policy: AI use must be disclosed and PR text must not be AI-written.
+* The model is on the Hub under the owner's account ([`eins78/Kolibri-1-mlx-mixed-4-8-bit`](https://huggingface.co/eins78/Kolibri-1-mlx-mixed-4-8-bit)). No `mlx-community` upload has been made.
 * Serving leaves only 8 to 12 % of system memory free next to the Docker stack. Long evaluation runs should not share the machine with other large jobs.
 
-## 7. Repository layout
+## 8. Repository layout
 
 | Path | Purpose |
 |---|---|
-| `docs/BRIEF-phase1.md` | phase 1 task brief and constraints |
-| `docs/BRIEF-phase2.md` | phase 2 brief (evals, licences, publication) |
-| `docs/BRIEF-phase3.md` | phase 3 brief (Hugging Face upload) |
 | `LICENSE` | CC0 1.0 Universal, default licence |
 | `LICENSES/` | full texts of the Apache-2.0 and MIT licences used by derived files |
 | `NOTICE` | derived files, upstreams, copyrights and changes |
-| `evals/` | evaluation suites run against the model; results in `evals/RESULTS.md` |
-| `NOTES.md` | running log: decisions and numbers |
 | `README.md` | this file |
 | `pyproject.toml`, `uv.lock` | `uv` project, Python 3.12 |
 | `generate.py` | `mlx_lm.generate` with the model registered |
@@ -364,28 +389,25 @@ System free memory was 8 to 13 % while serving on this 64 GB machine with Docker
 | `scripts/check_position_bands.py` | error by position band, residual maxima |
 | `scripts/smoke_server.py` | server smoke test |
 | `scripts/smoke_tiny.py` | tiny-model smoke test (cache, sanitize, quantise) |
-| `scripts/memguard.sh` | kills a job when system free memory is low |
 | `tests/test_kolibri1.py` | pytest suite on a tiny random model with an independent torch reference |
 | `verify/prompts.py` | the five verification prompts |
-| `verify/results/` | result JSON files of the runs quoted in this README (tracked) |
+| `verify/results/` | result JSON files of the runs quoted in this README (tracked; run paths made repo-relative) |
 | `verify/out/` | fresh run output and reference activations (git-ignored) |
-| `drafts/mlx-lm-pr.md` | notes for the upstream PR |
-| `drafts/model-card.md` | draft model card |
 | `models/` | converted models (git-ignored) |
 | `run/` | run output files (git-ignored) |
 
-## 8. Licences
+## 9. Licences
 
 The aim is the most permissive arrangement the upstream licences allow. Wholly original code keeps no rights. Derived code keeps its upstream licence and carries the upstream notice.
 
-* Default: CC0 1.0 Universal (`LICENSE`). This covers the converter, checkpoint reader, FP8 dequantisation, verification scripts, server wrappers, docs and notes.
+* Default: CC0 1.0 Universal (`LICENSE`). This covers the converter, checkpoint reader, FP8 dequantisation, verification scripts, server wrappers and docs.
 * MIT: `kolibri_mlx/models/kolibri1.py`, derived from mlx-lm's `qwen3_moe.py`, `cohere2.py` and `deepseek_v3.py` (Apple Inc.). It is meant to be contributed to mlx-lm.
 * Apache 2.0: `kolibri_mlx/reference_torch.py`, a transcription of the math of Aleph Alpha's `aleph_alpha_inference/kolibri1.py`. `tests/test_kolibri1.py` is Apache 2.0 AND MIT: the routing test is ported from the plugin, the model checks follow mlx-lm's test harness.
 * Weights: `Aleph-Alpha/Kolibri-1` and the converted models stay under Apache 2.0 by Aleph Alpha. They are not distributed here.
 
 Every source file has an SPDX identifier. `NOTICE` lists the derived files and what was changed. Full texts are in `LICENSES/`.
 
-## 9. Reproduction checklist
+## 10. Reproduction checklist
 
 Run from the repo root. Steps 3 to 6 need the 4-bit model from step 2. Steps 4 and 5 need the reference from step 3.
 
